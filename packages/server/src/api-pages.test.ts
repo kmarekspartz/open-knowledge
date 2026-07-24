@@ -79,9 +79,59 @@ describe('extractPageTitle', () => {
     const content = '---\ntitle: "Mismatched\'\n---\n\nBody.';
     expect(extractPageTitle(content, 'filename')).toBe('"Mismatched\'');
   });
+
+  test('ignores headings inside code blocks when finding fallback title', () => {
+    const content = 'Some text\n\n```bash\n# A bash comment\n```\n\n# Real Heading';
+    expect(extractPageTitle(content, 'filename')).toBe('Real Heading');
+  });
+
+  test('falls back to ATX headings with multiple spaces', () => {
+    const content = '#    Heading   ';
+    expect(extractPageTitle(content, 'filename')).toBe('Heading');
+  });
+
+  test('falls back to indented ATX headings', () => {
+    const content = '  # Heading';
+    expect(extractPageTitle(content, 'filename')).toBe('Heading');
+  });
+
+  test('falls back to Setext headings', () => {
+    const content = 'Setext Heading\n=======';
+    expect(extractPageTitle(content, 'filename')).toBe('Setext Heading');
+  });
+
+  test('ignores trailing hashes on ATX headings', () => {
+    const content = '# Heading ###';
+    expect(extractPageTitle(content, 'filename')).toBe('Heading');
+  });
+
+  test('does not consider --- as Setext H1', () => {
+    const content = 'Heading\n---';
+    expect(extractPageTitle(content, 'filename')).toBe('filename');
+  });
 });
 
 describe('extractHeadings', () => {
+  test('extracts ATX and Setext headings', () => {
+    const content = [
+      '# ATX 1',
+      'ATX 2 ###',
+      '#    ATX 3   ',
+      'Setext 1',
+      '=======',
+      'Setext 2',
+      '-------',
+      '  # Indented ATX'
+    ].join('\n');
+    expect(extractHeadings(content)).toEqual([
+      { level: 1, text: 'ATX 1', slug: 'atx-1' },
+      { level: 1, text: 'ATX 3', slug: 'atx-3' },
+      { level: 1, text: 'Setext 1', slug: 'setext-1' },
+      { level: 2, text: 'Setext 2', slug: 'setext-2' },
+      { level: 1, text: 'Indented ATX', slug: 'indented-atx' }
+    ]);
+  });
+
   test('deduplicates repeated heading slugs and strips frontmatter before scanning', () => {
     const content = [
       '---',

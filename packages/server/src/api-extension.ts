@@ -2947,13 +2947,32 @@ export function extractHeadings(content: string): HeadingEntry[] {
   const headings: HeadingEntry[] = [];
   const slugCounts = new Map<string, number>();
   const isInCodeFence = createCodeFenceTracker();
-  for (const line of body.split('\n')) {
+  const lines = body.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     if (isInCodeFence(line)) continue;
-    const match = line.match(/^(#{1,6})\s+(.+)$/);
+    const match = line.match(/^ {0,3}(#{1,6})\s+(.+)$/);
     if (match) {
-      const text = match[2].trim();
+      const text = match[2].trim().replace(/(?:\s+#+)?$/, '');
       const slug = getHeadingSlug(text, slugCounts);
       if (slug) headings.push({ level: match[1].length, text, slug });
+      continue;
+    }
+
+    // Setext headings
+    if (i < lines.length - 1) {
+      const nextLine = lines[i + 1];
+      if (line.trim().length > 0) {
+        if (/^ {0,3}===+\s*$/.test(nextLine)) {
+          const text = line.trim();
+          const slug = getHeadingSlug(text, slugCounts);
+          if (slug) headings.push({ level: 1, text, slug });
+        } else if (/^ {0,3}---+\s*$/.test(nextLine)) {
+          const text = line.trim();
+          const slug = getHeadingSlug(text, slugCounts);
+          if (slug) headings.push({ level: 2, text, slug });
+        }
+      }
     }
   }
   return headings;

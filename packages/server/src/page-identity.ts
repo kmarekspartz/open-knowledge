@@ -2,6 +2,7 @@ import {
   stripFrontmatter,
   toWikiLinkSlug,
   unwrapFrontmatterFences,
+  createCodeFenceTracker,
 } from '@inkeep/open-knowledge-core';
 
 export interface PageIdentity {
@@ -133,9 +134,27 @@ export function extractPageTitle(content: string, filename: string): string {
   const title = extractFrontmatterScalar(frontmatter, 'title');
   if (title) return title;
 
-  const headingMatch = body.match(/^# (.+)$/m);
-  if (headingMatch) {
-    return headingMatch[1].trim();
+  const isInCodeFence = createCodeFenceTracker();
+
+  const lines = body.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (isInCodeFence(line)) continue;
+
+    // ATX H1 (0-3 spaces, 1 hash, 1+ spaces, text, optional trailing spaces/hashes)
+    const atxMatch = line.match(/^ {0,3}#(?:\s+)(.+?)(?:\s+#+)?\s*$/);
+    if (atxMatch) {
+      return atxMatch[1].trim();
+    }
+
+    // Setext H1 (text on line i, ==== on line i+1)
+    if (i < lines.length - 1) {
+      const nextLine = lines[i + 1];
+      // Note: nextLine matching === won't change code fence state in a way that matters here
+      if (line.trim().length > 0 && /^ {0,3}===+\s*$/.test(nextLine)) {
+        return line.trim();
+      }
+    }
   }
 
   return filename;
